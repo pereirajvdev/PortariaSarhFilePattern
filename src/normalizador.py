@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+from extrator_ocr import analisar_portaria, identificar_tipo_portaria
 from setores import identificar_setor
 from nomes import normalizar_nome
 from logger import log_warning
@@ -21,6 +22,45 @@ TIPOS_PORTARIA = {
     "LG"
 }
 
+def normalizar_portaria_ocr(caminho: Path) -> str | None:
+    """Gera o nome padronizado usando os dados extraídos por OCR."""
+
+    dados = analisar_portaria(caminho)
+
+    numero = dados.get("numero")
+    ano = dados.get("ano")
+    servidor = dados.get("servidor")
+    secretarias = dados.get("secretarias") or []
+    texto = dados.get("texto_extraido") or ""
+
+    tipo = identificar_tipo_portaria(texto)
+
+    if not numero or not ano or not tipo or not servidor:
+        log_warning(
+            f"Dados insuficientes no OCR para renomear: {caminho.name}"
+        )
+        return None
+
+    nome = normalizar_nome(servidor)
+
+    # Remove siglas repetidas sem alterar a ordem.
+    setores = list(dict.fromkeys(
+        setor.upper().strip()
+        for setor in secretarias
+        if setor and setor.strip()
+    ))
+
+    if not setores:
+        log_warning(
+            f"Nenhuma secretaria identificada no OCR: {caminho.name}"
+        )
+        return None
+
+    portaria = f"Portaria nº {numero}-{ano}"
+    setores_texto = " - ".join(setores)
+
+    return f"{portaria} - {tipo} - {nome} - {setores_texto}.pdf"
+
 def normalizar_arquivo(caminho: Path) -> str | None:
     """
     Recebe o caminho de um PDF e tenta gerar o novo nome.
@@ -28,6 +68,10 @@ def normalizar_arquivo(caminho: Path) -> str | None:
 
     nome_original = caminho.stem
 
+    # PDFs com nome numérico, como 657-2025.pdf, usam OCR.
+    if re.match(r"^\s*\d+\s*-\s*\d{4}\s*$", nome_original):
+        return normalizar_portaria_ocr(caminho)
+    
     # Identifica e remove o prefixo do arquivo
     resultado_portaria = re.match(
         r"^\s*(Portaria\s+n[ºo°]?\s*\d+\s*-\s*\d{4})\s*-\s*(.*)$",
