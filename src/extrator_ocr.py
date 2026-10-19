@@ -159,19 +159,42 @@ def extrair_verbo_e_artigo(texto_artigo: str) -> tuple[str | None, str]:
 
 def extrair_servidor(texto: str) -> str | None:
     """
-    Extrai o nome do servidor após 'o servidor' ou 'a servidora',
-    encerrando a captura antes da matrícula ou da primeira vírgula.
+    Extrai o nome do servidor em diferentes formatos de portaria.
+
+    Exemplos reconhecidos:
+    - a servidora MARIA APARECIDA, matrícula 123
+    - à servidora MARIA APARECIDA, matrícula 123
+    - ao servidor JOÃO DA SILVA, matrícula 456
+    - à Sra. MARIA APARECIDA, matrícula 789
+    - READAPTAR o servidor JOÃO DA SILVA, matrícula 321
     """
+
+    texto = re.sub(r"\s+", " ", texto).strip()
+
     padrao = (
-        r"\b(?:o|a)\s+servidor(?:a)?\s+"
+        r"\b(?:"
+        r"ao\s+servidor"
+        r"|a[o]?\s+servidora"
+        r"|[àa]\s+servidor"
+        r"|[àa]\s+servidora"
+        r"|o\s+servidor"
+        r"|a\s+servidor"
+        r"|[àa]\s+(?:senhora|sra\.?)"
+        r"|(?:senhora|sra\.?)"
+        r")\s+"
         r"(.+?)"
-        r"(?=\s*,|\s+matr[ií]cula\b)"
+        r"(?=\s*,|\s+matr[ií]cula\b"
+        r"|\s+lotad[oa]\b"
+        r"|\s+pelo\s+per[ií]odo\b"
+        r"|\s+no\s+per[ií]odo\b"
+        r"|\s+a\s+contar\b"
+        r"|$)"
     )
 
     resultado = re.search(
         padrao,
         texto,
-        flags=re.IGNORECASE | re.DOTALL,
+        flags=re.IGNORECASE,
     )
 
     if not resultado:
@@ -180,7 +203,10 @@ def extrair_servidor(texto: str) -> str | None:
     nome = re.sub(r"\s+", " ", resultado.group(1)).strip()
     nome = nome.strip(" ,.;:-")
 
-    if len(nome.split()) < 2:
+    # Evita retornar fragmentos ou expressões que não sejam nomes.
+    palavras = nome.split()
+
+    if len(palavras) < 2:
         return None
 
     return nome.upper()
@@ -249,6 +275,10 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
     numero_ano = extrair_numero_ano(caminho_pdf.stem)
     texto_resolve = extrair_artigo_resolve(texto)
 
+    tipo = identificar_tipo_portaria(
+        texto_resolve if texto_resolve else texto
+    )
+    
     verbo = None
     servidor = None
 
@@ -264,6 +294,7 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
         "numero": numero_ano[0] if numero_ano else None,
         "ano": numero_ano[1] if numero_ano else None,
         "verbo": verbo,
+        "tipo": tipo,
         "servidor": servidor,
         "secretarias": secretarias,
         "resolve_encontrado": texto_resolve is not None,
@@ -271,9 +302,8 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
     }
 
 def identificar_tipo_portaria(texto: str) -> str | None:
-    """Identifica o tipo da portaria pelo texto extraído do PDF."""
+    """Identifica o tipo da portaria pelo texto extraído."""
 
-    import re
     import unicodedata
 
     texto = unicodedata.normalize("NFD", texto)
@@ -294,16 +324,28 @@ def identificar_tipo_portaria(texto: str) -> str | None:
             r"LICENCA\s+ESPECIAL\s+POR\s+LUTO",
         ),
         (
+            "LP",
+            r"LICENCA\s+PREMIO\s+POR\s+ASSIDUIDADE",
+        ),
+        (
+            "LC",
+            r"LICENCA\s+(?:PARA\s+)?CASAMENTO",
+        ),
+        (
             "LTS",
             r"LICENCA\s+PARA\s+TRATAMENTO\s+DE\s+(?:SUA\s+)?SAUDE",
         ),
         (
             "LG",
-            r"LICENCA\s+A\s+GESTANTE",
+            r"LICENCA\s+(?:A|A\s+GESTANTE|MATERNIDADE)",
         ),
         (
             "AP",
             r"ABONO\s+(?:DE\s+)?PERMANENCIA",
+        ),
+        (
+            "READAPT",
+            r"\bREADAPTAR\b",
         ),
         (
             "RELOTAR",
