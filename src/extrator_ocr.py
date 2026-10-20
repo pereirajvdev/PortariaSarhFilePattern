@@ -50,46 +50,45 @@ def configurar_tesseract() -> None:
 
 def extrair_texto_pdf(caminho_pdf: Path) -> tuple[str, str]:
     """
-    Tenta extrair texto diretamente do PDF.
-    Se não houver texto suficiente, utiliza OCR.
+    Extrai texto somente da primeira página do PDF.
+    Tenta primeiro a extração direta e utiliza Tesseract
+    apenas se o texto extraído for insuficiente.
     """
 
     with fitz.open(caminho_pdf) as documento:
-        paginas = list(documento)
+        if len(documento) == 0:
+            return "", "PDF VAZIO"
 
-        texto_direto = "\n".join(
-            pagina.get_text("text")
-            for pagina in paginas
-        ).strip()
+        # Trabalha exclusivamente com a primeira página.
+        primeira_pagina = documento[0]
 
+        texto_direto = primeira_pagina.get_text("text").strip()
+
+        # Se o texto direto for suficiente, não executa OCR.
         if len(texto_direto) >= 100:
             return texto_direto, "TEXTO DIRETO"
 
+        # OCR somente da primeira página.
         configurar_tesseract()
 
-        textos_ocr = []
+        pix = primeira_pagina.get_pixmap(
+            matrix=fitz.Matrix(2, 2),
+            alpha=False,
+        )
 
-        for pagina in paginas:
-            pix = pagina.get_pixmap(
-                matrix=fitz.Matrix(2, 2),
-                alpha=False,
-            )
+        imagem = Image.frombytes(
+            "RGB",
+            [pix.width, pix.height],
+            pix.samples,
+        )
 
-            imagem = Image.frombytes(
-                "RGB",
-                [pix.width, pix.height],
-                pix.samples,
-            )
+        texto_ocr = pytesseract.image_to_string(
+            imagem,
+            lang="por",
+            config="--psm 3",
+        )
 
-            texto = pytesseract.image_to_string(
-                imagem,
-                lang="por",
-                config="--psm 3",
-            )
-
-            textos_ocr.append(texto)
-
-        return "\n".join(textos_ocr), "TESSERACT OCR"
+        return texto_ocr, "TESSERACT OCR"
 
 
 def extrair_numero_ano(nome_arquivo: str) -> tuple[str, str] | None:
@@ -341,11 +340,11 @@ def identificar_tipo_portaria(texto: str) -> str | None:
         ),
         (
             "L Luto",
-            r"LICENCA\s+ESPECIAL\s+POR\s+LUTO",
+            r"LICENCA\s+(?:ESPECIAL\s+POR\s+)?LUTO",
         ),
         (
             "LP",
-            r"LICENCA\s+PREMIO\s+POR\s+ASSIDUIDADE",
+            r"LICENCA\s+PREMIO(?:\s+POR\s+ASSIDUIDADE)?",
         ),
         (
             "LC",
@@ -353,11 +352,19 @@ def identificar_tipo_portaria(texto: str) -> str | None:
         ),
         (
             "LTS",
-            r"LICENCA\s+PARA\s+TRATAMENTO\s+DE\s+(?:SUA\s+)?SAUDE",
+            r"LICENCA\s+(?:PARA\s+TRATAMENTO\s+DE\s+(?:SUA\s+)?SAUDE|SAUDE)",
         ),
         (
             "LG",
-            r"LICENCA\s+(?:A|A\s+GESTANTE|MATERNIDADE)",
+            r"LICENCA\s+(?:GESTANTE|MATERNIDADE|A\s+GESTANTE)",
+        ),
+        (
+            "L Pat",
+            r"LICENCA\s+PATERNIDADE",
+        ),
+        (
+            "L CAT",
+            r"LICENCA\s+(?:POR\s+)?CAT\b",
         ),
         (
             "AP",
@@ -365,11 +372,11 @@ def identificar_tipo_portaria(texto: str) -> str | None:
         ),
         (
             "Readapt",
-            r"\bREADAPTAR\b",
+            r"\bREADAPT(?:AR|ACAO|ACAO\s+DE)?\b",
         ),
         (
             "Relot",
-            r"\bRELOTAR\b",
+            r"\bRELOT(?:AR|ACAO)\b",
         ),
         (
             "FR",
@@ -380,8 +387,28 @@ def identificar_tipo_portaria(texto: str) -> str | None:
             r"\bANULAR\b",
         ),
         (
-            "L Pat",
-            r"\bLICENCA\s+PATERNIDADE\b",
+            "Prorrogar",
+            r"\bPRORROGAR\b",
+        ),
+        (
+            "Revog",
+            r"\bREVOGAR\b|\bREVOGACAO\b",
+        ),
+        (
+            "Prom Vert",
+            r"\bPROMOCAO\s+VERTICAL\b|\bPROGRESSAO\s+VERTICAL\b",
+        ),
+        (
+            "Enqua",
+            r"\bENQUADRA(?:R|MENTO)\b",
+        ),
+        (
+            "Adic Tit",
+            r"\bADICIONAL\s+DE\s+TITULACAO\b",
+        ),
+        (
+            "Av Area Afim",
+            r"\bAVALIACAO\s+DE\s+AREA\s+AFIM\b",
         ),
     ]
 

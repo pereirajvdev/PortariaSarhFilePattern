@@ -20,7 +20,7 @@ def main():
     )
 
     parser.add_argument(
-        "--ignored",
+        "--ignorados",
         required=True,
         help="Pasta onde os arquivos que não puderam ser processados serão salvos."
     )
@@ -29,7 +29,7 @@ def main():
 
     pasta_entrada = Path(args.entrada)
     pasta_saida = Path(args.out)
-    pasta_ignorados = Path(args.ignored)
+    pasta_ignorados = Path(args.ignorados)
 
     if not pasta_entrada.exists():
         print(f"[ERRO] Pasta de entrada não encontrada: {pasta_entrada}")

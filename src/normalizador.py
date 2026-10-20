@@ -18,13 +18,19 @@ TIPOS_PORTARIA = {
     "LC",
     "LTS",
     "LG",
+    "L Pat",
+    "L CAT",
     "AP",
     "Readapt",
     "Relot",
     "FR",
     "Anular",
-    "L Pat",
-    "L CAT",
+    "Prorrogar",
+    "Revog",
+    "Prom Vert",
+    "Enqua",
+    "Adic Tit",
+    "Av Area Afim",
 }
 
 def normalizar_portaria_ocr(caminho: Path) -> str | None:
@@ -69,92 +75,110 @@ def normalizar_portaria_ocr(caminho: Path) -> str | None:
 def normalizar_arquivo(caminho: Path) -> str | None:
     """
     Recebe o caminho de um PDF e tenta gerar o novo nome.
+
+    Arquivos numéricos ou com nome descritivo sem sigla de tipo
+    são normalizados usando OCR.
+    Arquivos que já possuem a sigla seguem o fluxo atual.
     """
 
     nome_original = caminho.stem
 
-    # Remove as letras do nome antes de verificar o padrão numérico.
+    # Extrai número e ano mesmo quando o nome contém texto descritivo.
     nome_numerico = re.sub(r"[^\d\s/_-]", "", nome_original)
 
-    # PDFs com nome numérico, inclusive "Portaria nº 003-2026",
-    # utilizam OCR para identificar os dados da portaria.
-    if re.fullmatch(r"\s*\d{1,5}\s*[-_/]\s*20\d{2}\s*", nome_numerico):
-        return normalizar_portaria_ocr(caminho)
-    
-    # Identifica e remove o prefixo do arquivo
-    resultado_portaria = re.match(
-        r"^\s*(Portaria\s+n[ºo°]?\s*\d+\s*-\s*\d{4})\s*-\s*(.*)$",
-        nome_original,
-        flags=re.IGNORECASE
+    resultado_numero = re.search(
+        r"(?<!\d)(\d{1,5})\s*[-_/]\s*(20\d{2})(?!\d)",
+        nome_numerico,
     )
 
-    if resultado_portaria is None:
+    if resultado_numero is None:
         log_warning(f"Portaria não identificada: {caminho.name}")
         return None
 
+    # Arquivos somente numéricos usam OCR.
+    if re.fullmatch(
+        r"\s*\d{1,5}\s*[-_/]\s*20\d{2}\s*",
+        nome_numerico,
+    ):
+        return normalizar_portaria_ocr(caminho)
+
+    # Identifica o prefixo da portaria.
+    resultado_portaria = re.match(
+        r"^\s*(Portaria\s+n[ºo°]?\s*\d+\s*-\s*\d{4})\s*-\s*(.*)$",
+        nome_original,
+        flags=re.IGNORECASE,
+    )
+
+    if resultado_portaria is None:
+        # Nome descritivo em formato diferente: tenta normalizar pelo OCR.
+        return normalizar_portaria_ocr(caminho)
+
     portaria = resultado_portaria.group(1).strip()
     texto = resultado_portaria.group(2).strip()
+
+    # Portarias de prorrogação podem trazer o tipo do benefício
+    # separado do nome da servidora. Nesses casos, usar o OCR.
+    if re.match(r"^\s*Prorrogar\b", texto, flags=re.IGNORECASE):
+        return normalizar_portaria_ocr(caminho)
 
     tipo_encontrado = None
     texto_restante = None
 
     for tipo in sorted(TIPOS_PORTARIA, key=len, reverse=True):
-
-        # Permite variações de espaços no tipo.
-        # Ex.: "AP" e "A P" são equivalentes.
         if tipo == "AP":
             padrao_tipo = r"A\s*P"
         else:
             partes_tipo = tipo.split()
-            padrao_tipo = r"\s*".join(map(re.escape, partes_tipo))
+            padrao_tipo = r"\s+".join(
+                map(re.escape, partes_tipo)
+            )
 
         resultado_tipo = re.match(
             rf"^\s*{padrao_tipo}(?=\s|$|-)",
             texto,
-            flags=re.IGNORECASE
+            flags=re.IGNORECASE,
         )
 
         if resultado_tipo:
             tipo_encontrado = tipo
             texto_restante = texto[resultado_tipo.end():].lstrip(" -")
 
-            # Remove o tipo caso ele apareça novamente no início do texto.
+            # Remove a sigla repetida no começo, se houver.
             padrao_tipo_repetido = re.match(
                 r"^\s*" + re.escape(tipo_encontrado) + r"(?=\s|$|-)",
                 texto_restante,
-                flags=re.IGNORECASE
+                flags=re.IGNORECASE,
             )
 
             if padrao_tipo_repetido:
-                texto_restante = texto_restante[padrao_tipo_repetido.end():].lstrip(" -")
+                texto_restante = texto_restante[
+                    padrao_tipo_repetido.end():
+                ].lstrip(" -")
+
             break
 
+    # Sem sigla reconhecida: o OCR identifica o tipo e os demais dados.
     if tipo_encontrado is None:
-        log_warning(
-            f"Tipo de portaria não identificado: {caminho.name}"
-        )
-        return None
+        return normalizar_portaria_ocr(caminho)
 
     tipo = tipo_encontrado.upper()
 
-    # Substitui underscore por hífen    
+    # Substitui underscore por hífen.
     texto = texto_restante.replace("_", "-")
 
-    # Identifica a marcação de contrato
+    # Identifica a marcação de contrato.
     eh_contrato = bool(
         re.search(r"\s+(?:CONT|CONTRATO)\s+(?=-)", texto, re.IGNORECASE)
     )
 
-    # Remove a marcação do texto para facilitar a identificação do nome
     if eh_contrato:
         texto = re.sub(
             r"\s+(?:CONT|CONTRATO)\s+(?=-)",
             " ",
             texto,
-            flags=re.IGNORECASE
+            flags=re.IGNORECASE,
         )
 
-    # converte espaços multiplicados em único
     texto = re.sub(r"\s+", " ", texto).strip()
 
     resultado_periodo = extrair_periodo(texto)
@@ -165,15 +189,12 @@ def normalizar_arquivo(caminho: Path) -> str | None:
         texto_sem_periodo = texto
     else:
         inicio, fim, inicio_pos, fim_pos = resultado_periodo
-
-        # Remove exatamente o período encontrado
         texto_sem_periodo = texto[:inicio_pos] + texto[fim_pos:]
 
-    # Limpa separadores duplicados
     texto_sem_periodo = re.sub(
         r"\s*[-–—]\s*",
         " - ",
-        texto_sem_periodo
+        texto_sem_periodo,
     )
 
     partes = [
@@ -192,21 +213,25 @@ def normalizar_arquivo(caminho: Path) -> str | None:
 
     if resultado_nome_setor is None:
         log_warning(
-            f"Não foi possível identificar nome/setor: {caminho.name}"
+            f"Não foi possível identificar nome/setor pelo nome "
+            f"do arquivo: {caminho.name}. Tentando OCR."
         )
-        return None
+        return normalizar_portaria_ocr(caminho)
 
     nome, setor = resultado_nome_setor
 
     nome = normalizar_nome(nome)
     setor = setor.upper().strip()
-    
+
     if inicio is not None:
         inicio, fim = completar_periodo(inicio, fim)
         periodo = formatar_periodo(inicio, fim)
 
         if eh_contrato:
-            return f"{portaria} - {tipo} - {nome} - {setor} - {periodo} - CONTRATO.pdf"
+            return (
+                f"{portaria} - {tipo} - {nome} - {setor} "
+                f"- {periodo} - CONTRATO.pdf"
+            )
 
         return f"{portaria} - {tipo} - {nome} - {setor} - {periodo}.pdf"
 
