@@ -68,8 +68,12 @@ def normalizar_arquivo(caminho: Path) -> str | None:
 
     nome_original = caminho.stem
 
-    # PDFs com nome numérico, como 657-2025.pdf, usam OCR.
-    if re.match(r"^\s*\d+\s*-\s*\d{4}\s*$", nome_original):
+    # Remove as letras do nome antes de verificar o padrão numérico.
+    nome_numerico = re.sub(r"[^\d\s/_-]", "", nome_original)
+
+    # PDFs com nome numérico, inclusive "Portaria nº 003-2026",
+    # utilizam OCR para identificar os dados da portaria.
+    if re.fullmatch(r"\s*\d{1,5}\s*[-_/]\s*20\d{2}\s*", nome_numerico):
         return normalizar_portaria_ocr(caminho)
     
     # Identifica e remove o prefixo do arquivo

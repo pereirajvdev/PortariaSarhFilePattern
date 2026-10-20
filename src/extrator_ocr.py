@@ -94,13 +94,18 @@ def extrair_texto_pdf(caminho_pdf: Path) -> tuple[str, str]:
 
 def extrair_numero_ano(nome_arquivo: str) -> tuple[str, str] | None:
     """
-    Extrai número e ano do nome original do arquivo.
-    Aceita, por exemplo, 658-2025, 658_2025 e 658/2025.
+    Remove as letras do nome e extrai o número e o ano.
+    Exemplo: 'Portaria nº 001-2026' -> '  001-2026'
     """
+
+    nome_numerico = re.sub(r"[^\d\s/_-]", "", nome_arquivo)
+
+    print(f"Nome original: {nome_arquivo}")
+    print(f"Nome sem letras: {nome_numerico}")
 
     resultado = re.search(
         r"(?<!\d)(\d{1,5})\s*[-_/]\s*(20\d{2})(?!\d)",
-        nome_arquivo,
+        nome_numerico,
     )
 
     if not resultado:
@@ -348,7 +353,7 @@ def identificar_tipo_portaria(texto: str) -> str | None:
             r"\bREADAPTAR\b",
         ),
         (
-            "RELOTAR",
+            "RELOT",
             r"\bRELOTAR\b",
         ),
     ]
