@@ -114,10 +114,8 @@ def extrair_numero_ano(nome_arquivo: str) -> tuple[str, str] | None:
 
 
 def extrair_artigo_resolve(texto: str) -> str | None:
-    """
-    Extrai somente o primeiro artigo após RESOLVE.
-    Exemplo: Art. 1º RELOTAR a servidora ...
-    """
+    """Extrai o primeiro artigo após RESOLVE, tolerando erros comuns de OCR."""
+
     resultado_resolve = re.search(
         r"\bRESOLVE\s*[:;]?\s*",
         texto,
@@ -130,8 +128,11 @@ def extrair_artigo_resolve(texto: str) -> str | None:
     texto_posterior = texto[resultado_resolve.end():]
 
     resultado_artigo = re.search(
-        r"\bArt(?:igo)?\.?\s*1\s*[º°oª.]?\s*(.*?)"
-        r"(?=\bArt(?:igo)?\.?\s*2\b|$)",
+        r"\bArt(?:igo)?[.,]?\s*"
+        r"1\s*(?:[º°oª])?\.?\s*"
+        r"(.*?)"
+        r"(?=\bArt(?:igo)?[.,]?\s*"
+        r"2\s*(?:[º°oª])?\.?\s*|$)",
         texto_posterior,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -139,7 +140,9 @@ def extrair_artigo_resolve(texto: str) -> str | None:
     if not resultado_artigo:
         return None
 
-    return resultado_artigo.group(1).strip()
+    artigo = resultado_artigo.group(1).strip()
+
+    return artigo or None
 
 
 def extrair_verbo_e_artigo(texto_artigo: str) -> tuple[str | None, str]:
@@ -162,61 +165,26 @@ def extrair_verbo_e_artigo(texto_artigo: str) -> tuple[str | None, str]:
 
 
 def extrair_servidor(texto: str) -> str | None:
-    """
-    Extrai o nome do servidor em diferentes formatos de portaria.
-
-    Exemplos:
-    - a servidora MARIA APARECIDA, matrícula 123
-    - à servidora MARIA APARECIDA, matrícula 123
-    - ao servidor JOÃO DA SILVA, matrícula 456
-    - ao sr. ROMULO RAIMUNDO DE ANDRADE ROTONDARO, matrícula 2290
-    - à Sra. MARIA APARECIDA, matrícula 789
-    - READAPTAR o servidor JOÃO DA SILVA, matrícula 321
-    """
+    """Extrai o nome do servidor a partir dos dados funcionais."""
 
     texto = re.sub(r"\s+", " ", texto).strip()
 
     padrao = (
-        r"\b(?:"
-        r"ao\s+servidor"
-        r"|a\s+servidora"
-        r"|à\s+servidora"
-        r"|à?\s+servidor"
-        r"|o\s+servidor"
-        r"|a\s+servidor"
-        r"|ao\s+(?:sr|senhor)\.?"
-        r"|à\s+(?:sra|senhora)\.?"
-        r"|a\s+(?:sra|senhora)\.?"
-        r"|(?:sr|sra|senhor|senhora)\.?"
-        r")\s+"
-        r"(.+?)"
-        r"(?=\s*,?\s*matr[ií]cula\b"
-        r"|\s*,\s*cargo\b"
-        r"|\s+ocupante\s+do\s+cargo\b"
-        r"|\s+lotad[oa]\b"
-        r"|\s+no\s+per[ií]odo\b"
-        r"|\s+por\s+um\s+per[ií]odo\b"
-        r"|\s+a\s+contar\b"
-        r"|$)"
+        r"\b(?:a\s+servidora|o\s+servidor|ao\s+servidor|"
+        r"à\s+servidora)\s+"
+        r"([A-ZÀ-Ü][A-ZÀ-Üa-zà-ü]+"
+        r"(?:\s+[A-ZÀ-Ü][A-ZÀ-Üa-zà-ü]+){1,11})"
+        r"\s*,?\s*(?=matr[ií]cula\b|ocupante\b)"
     )
 
-    resultado = re.search(
-        padrao,
-        texto,
-        flags=re.IGNORECASE,
-    )
+    for resultado in re.finditer(padrao, texto, flags=re.IGNORECASE):
+        nome = resultado.group(1).strip()
+        palavras = nome.split()
 
-    if not resultado:
-        return None
+        if len(palavras) >= 2:
+            return nome.upper()
 
-    nome = resultado.group(1).strip(" ,.;:-")
-    nome = re.sub(r"\s+", " ", nome)
-
-    # Exige pelo menos nome e sobrenome.
-    if len(nome.split()) < 2:
-        return None
-
-    return nome.upper()
+    return None
 
 
 def extrair_secretaria(texto: str) -> str | None:
