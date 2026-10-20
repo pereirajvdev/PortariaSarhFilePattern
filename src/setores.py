@@ -81,10 +81,6 @@ NOMES_SETORES = {
     "SEPLAN": [
         "Secretaria Municipal de Planejamento",
     ],
-    "SESMT": [
-        "Serviço Especializado em Segurança e Medicina do Trabalho",
-        "Segurança e Medicina do Trabalho",
-    ],
     "SELTC": [
         "Secretaria Municipal de Lazer, Turismo e Cultura",
     ],
