@@ -166,10 +166,11 @@ def extrair_servidor(texto: str) -> str | None:
     """
     Extrai o nome do servidor em diferentes formatos de portaria.
 
-    Exemplos reconhecidos:
+    Exemplos:
     - a servidora MARIA APARECIDA, matrícula 123
     - à servidora MARIA APARECIDA, matrícula 123
     - ao servidor JOÃO DA SILVA, matrícula 456
+    - ao sr. ROMULO RAIMUNDO DE ANDRADE ROTONDARO, matrícula 2290
     - à Sra. MARIA APARECIDA, matrícula 789
     - READAPTAR o servidor JOÃO DA SILVA, matrícula 321
     """
@@ -179,19 +180,23 @@ def extrair_servidor(texto: str) -> str | None:
     padrao = (
         r"\b(?:"
         r"ao\s+servidor"
-        r"|a[o]?\s+servidora"
-        r"|[àa]\s+servidor"
-        r"|[àa]\s+servidora"
+        r"|a\s+servidora"
+        r"|à\s+servidora"
+        r"|à?\s+servidor"
         r"|o\s+servidor"
         r"|a\s+servidor"
-        r"|[àa]\s+(?:senhora|sra\.?)"
-        r"|(?:senhora|sra\.?)"
+        r"|ao\s+(?:sr|senhor)\.?"
+        r"|à\s+(?:sra|senhora)\.?"
+        r"|a\s+(?:sra|senhora)\.?"
+        r"|(?:sr|sra|senhor|senhora)\.?"
         r")\s+"
         r"(.+?)"
-        r"(?=\s*,|\s+matr[ií]cula\b"
+        r"(?=\s*,?\s*matr[ií]cula\b"
+        r"|\s*,\s*cargo\b"
+        r"|\s+ocupante\s+do\s+cargo\b"
         r"|\s+lotad[oa]\b"
-        r"|\s+pelo\s+per[ií]odo\b"
         r"|\s+no\s+per[ií]odo\b"
+        r"|\s+por\s+um\s+per[ií]odo\b"
         r"|\s+a\s+contar\b"
         r"|$)"
     )
@@ -205,13 +210,11 @@ def extrair_servidor(texto: str) -> str | None:
     if not resultado:
         return None
 
-    nome = re.sub(r"\s+", " ", resultado.group(1)).strip()
-    nome = nome.strip(" ,.;:-")
+    nome = resultado.group(1).strip(" ,.;:-")
+    nome = re.sub(r"\s+", " ", nome)
 
-    # Evita retornar fragmentos ou expressões que não sejam nomes.
-    palavras = nome.split()
-
-    if len(palavras) < 2:
+    # Exige pelo menos nome e sobrenome.
+    if len(nome.split()) < 2:
         return None
 
     return nome.upper()
@@ -283,7 +286,7 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
     tipo = identificar_tipo_portaria(
         texto_resolve if texto_resolve else texto
     )
-    
+
     verbo = None
     servidor = None
 
@@ -292,6 +295,18 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
         servidor = extrair_servidor(artigo)
 
     secretarias = identificar_secretarias(texto)
+
+    # Em portarias de relotação, remover SARH quando
+    # houver duas ou mais outras secretarias diferentes.
+    if tipo == "RELOT":
+        secretarias_sem_sarh = [
+            secretaria
+            for secretaria in secretarias
+            if secretaria.upper() != "SARH"
+        ]
+
+        if len(set(secretarias_sem_sarh)) >= 2:
+            secretarias = secretarias_sem_sarh
 
     return {
         "arquivo": caminho_pdf.name,
@@ -325,7 +340,7 @@ def identificar_tipo_portaria(texto: str) -> str | None:
             r"LICENCA\s+POR\s+MOTIVO\s+DE\s+DOENCA\s+EM\s+PESSOA\s+DA\s+FAMILIA",
         ),
         (
-            "L LUTO",
+            "L Luto",
             r"LICENCA\s+ESPECIAL\s+POR\s+LUTO",
         ),
         (
@@ -349,12 +364,24 @@ def identificar_tipo_portaria(texto: str) -> str | None:
             r"ABONO\s+(?:DE\s+)?PERMANENCIA",
         ),
         (
-            "READAPT",
+            "Readapt",
             r"\bREADAPTAR\b",
         ),
         (
-            "RELOT",
+            "Relot",
             r"\bRELOTAR\b",
+        ),
+        (
+            "FR",
+            r"\bFERIAS\s+REGULAMENTARES\b",
+        ),
+        (
+            "Anular",
+            r"\bANULAR\b",
+        ),
+        (
+            "L Pat",
+            r"\bLICENCA\s+PATERNIDADE\b",
         ),
     ]
 

@@ -13,13 +13,18 @@ from datas import (
 
 TIPOS_PORTARIA = {
     "LDPF",
-    "LTS",
-    "LP",
-    "AP",
     "L Luto",
-    "READAPT",
+    "LP",
+    "LC",
+    "LTS",
+    "LG",
+    "AP",
+    "Readapt",
+    "Relot",
+    "FR",
+    "Anular",
+    "L Pat",
     "L CAT",
-    "LG"
 }
 
 def normalizar_portaria_ocr(caminho: Path) -> str | None:

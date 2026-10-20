@@ -3,6 +3,11 @@ from pathlib import Path
 
 from extrator_ocr import analisar_portaria, identificar_tipo_portaria
 from normalizador import normalizar_arquivo
+from cache import (
+    carregar_cache,
+    arquivo_ja_processado,
+    registrar_sucesso,
+)
 
 def listar_pdfs(caminho: Path, recursivo: bool = False) -> list[Path]:
     """Retorna os PDFs de um arquivo ou de uma pasta."""
@@ -30,6 +35,33 @@ def listar_pdfs(caminho: Path, recursivo: bool = False) -> list[Path]:
         ),
         key=lambda arquivo: arquivo.name.lower(),
     )
+
+
+def mover_nao_padronizado(arquivo: Path, pasta_destino: Path) -> Path:
+    """Move um PDF não padronizado para a pasta de destino."""
+
+    pasta_destino = pasta_destino.resolve()
+    arquivo_resolvido = arquivo.resolve()
+
+    # Evita mover um arquivo para a mesma pasta.
+    if arquivo_resolvido.parent == pasta_destino:
+        raise ValueError(
+            "O arquivo já está na pasta de não padronizados."
+        )
+
+    pasta_destino.mkdir(parents=True, exist_ok=True)
+
+    destino = pasta_destino / arquivo.name
+
+    # Não sobrescreve arquivos existentes.
+    if destino.exists():
+        raise FileExistsError(
+            f"Já existe um arquivo com esse nome no destino: {destino}"
+        )
+
+    arquivo.rename(destino)
+
+    return destino
 
 
 def testar_pdf(caminho: Path, mostrar_texto: bool = False) -> dict:
@@ -81,6 +113,13 @@ def main():
         help="Percorre também as subpastas.",
     )
 
+    parser.add_argument(
+        "--notstd",
+        type=Path,
+        metavar="FOLDER",
+        help="Move PDFs não padronizados para a pasta informada.",
+    )
+
     args = parser.parse_args()
 
     arquivos = listar_pdfs(args.caminho, args.recursivo)
@@ -95,6 +134,8 @@ def main():
     falhas = 0
     ignorados = 0
 
+    cache = carregar_cache()
+
     for indice, arquivo in enumerate(arquivos, start=1):
         print(
             f"\n[INFO] Processando "
@@ -102,6 +143,10 @@ def main():
         )
 
         try:
+            if arquivo_ja_processado(arquivo, cache):
+                print(f"[CACHE] Já processado com sucesso: {arquivo.name}")
+                continue
+            
             # Extrai e apresenta os dados encontrados.
             dados = testar_pdf(arquivo, args.texto)
 
@@ -109,17 +154,42 @@ def main():
             novo_nome = normalizar_arquivo(arquivo)
 
             if not novo_nome:
-                ignorados += 1
-                print(
-                    "[AVISO] Não foi possível gerar o nome. "
-                    "Arquivo mantido."
-                )
+                if args.notstd:
+                    try:
+                        destino = mover_nao_padronizado(
+                            arquivo,
+                            args.notstd,
+                        )
+
+                        ignorados += 1
+
+                        print(
+                            "[AVISO] Não foi possível padronizar o arquivo."
+                        )
+                        print(
+                            f"[OK] Movido para: {destino}"
+                        )
+
+                    except Exception as erro:
+                        falhas += 1
+                        print(
+                            f"[ERRO] Não foi possível mover "
+                            f"{arquivo.name}: {erro}"
+                        )
+                else:
+                    ignorados += 1
+                    print(
+                        "[AVISO] Não foi possível gerar o nome. "
+                        "Arquivo mantido."
+                    )
+
                 continue
 
             destino = arquivo.with_name(novo_nome)
 
-            # Se o nome já estiver correto, não altera o arquivo.
+            # Se o nome já estiver correto, registra o sucesso no cache.
             if destino == arquivo:
+                registrar_sucesso(arquivo, cache)
                 sucessos += 1
                 print(f"[OK] Nome já padronizado: {arquivo.name}")
                 continue
@@ -127,14 +197,14 @@ def main():
             # Não sobrescreve outro arquivo existente.
             if destino.exists():
                 falhas += 1
-                print(
-                    f"[ERRO] O destino já existe: {destino.name}"
-                )
+                print(f"[ERRO] O destino já existe: {destino.name}")
                 print("[INFO] Arquivo original mantido.")
                 continue
 
-            # Renomeia o arquivo na própria pasta.
+            # Renomeia e registra no cache somente após o sucesso.
             arquivo.rename(destino)
+
+            registrar_sucesso(destino, cache)
 
             sucessos += 1
             print(f"[OK] Renomeado para: {destino.name}")
@@ -150,10 +220,6 @@ def main():
     print(f"Renomeados ou já padronizados: {sucessos}")
     print(f"Não foi possível renomear: {falhas}")
     print(f"Ignorados por falta de dados: {ignorados}")
-
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":
