@@ -33,6 +33,26 @@ TIPOS_PORTARIA = {
     "Av Area Afim",
 }
 
+def normalizar_secretarias(secretarias: list[str], tipo: str) -> list[str]:
+    """Normaliza as secretarias e remove setores que não são secretarias."""
+
+    setores = list(dict.fromkeys(
+        setor.upper().strip()
+        for setor in secretarias
+        if setor
+        and setor.strip()
+        and setor.upper().strip() != "SESMT"
+    ))
+
+    tipo_normalizado = tipo.casefold().strip()
+    limite = 2 if tipo_normalizado == "relot" else 1
+
+    if len(setores) > limite and "SARH" in setores:
+        setores.remove("SARH")
+
+    return setores[:limite]
+
+
 def normalizar_portaria_ocr(caminho: Path) -> str | None:
     """Gera o nome padronizado usando os dados extraídos por OCR."""
 
@@ -55,11 +75,7 @@ def normalizar_portaria_ocr(caminho: Path) -> str | None:
     nome = normalizar_nome(servidor)
 
     # Remove siglas repetidas sem alterar a ordem.
-    setores = list(dict.fromkeys(
-        setor.upper().strip()
-        for setor in secretarias
-        if setor and setor.strip()
-    ))
+    setores = normalizar_secretarias(secretarias, tipo)
 
     if not setores:
         log_warning(
@@ -71,6 +87,40 @@ def normalizar_portaria_ocr(caminho: Path) -> str | None:
     setores_texto = " - ".join(setores)
 
     return f"{portaria} - {tipo} - {nome} - {setores_texto}.pdf"
+
+
+def normalizar_base(caminho: Path) -> str | None:
+    """
+    Gera o nome básico da portaria, mantendo apenas número e ano.
+    Não utiliza OCR.
+    """
+
+    nome_original = caminho.stem
+
+    resultado = re.search(
+        r"Portaria\s+n[ºo°]?\s*(\d{1,5})\s*[-_/]\s*(20\d{2})",
+        nome_original,
+        flags=re.IGNORECASE,
+    )
+
+    # Caso o nome não contenha a palavra Portaria, procura número e ano.
+    if resultado is None:
+        resultado = re.search(
+            r"(?<!\d)(\d{1,5})\s*[-_/]\s*(20\d{2})(?!\d)",
+            nome_original,
+        )
+
+    if resultado is None:
+        log_warning(
+            f"Número e ano não identificados: {caminho.name}"
+        )
+        return None
+
+    numero = resultado.group(1).zfill(3)
+    ano = resultado.group(2)
+
+    return f"Portaria nº {numero}-{ano}.pdf"
+
 
 def normalizar_arquivo(caminho: Path) -> str | None:
     """

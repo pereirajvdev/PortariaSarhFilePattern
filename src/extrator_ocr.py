@@ -50,45 +50,59 @@ def configurar_tesseract() -> None:
 
 def extrair_texto_pdf(caminho_pdf: Path) -> tuple[str, str]:
     """
-    Extrai texto somente da primeira página do PDF.
-    Tenta primeiro a extração direta e utiliza Tesseract
-    apenas se o texto extraído for insuficiente.
+    Extrai o texto de todas as páginas do PDF.
+    Usa texto direto quando suficiente e Tesseract como alternativa.
     """
+
+    textos = []
+    metodos = set()
 
     with fitz.open(caminho_pdf) as documento:
         if len(documento) == 0:
             return "", "PDF VAZIO"
 
-        # Trabalha exclusivamente com a primeira página.
-        primeira_pagina = documento[0]
+        for pagina in documento:
+            texto_direto = pagina.get_text("text").strip()
 
-        texto_direto = primeira_pagina.get_text("text").strip()
+            if len(texto_direto) >= 100:
+                textos.append(texto_direto)
+                metodos.add("TEXTO DIRETO")
+                continue
 
-        # Se o texto direto for suficiente, não executa OCR.
-        if len(texto_direto) >= 100:
-            return texto_direto, "TEXTO DIRETO"
+            configurar_tesseract()
 
-        # OCR somente da primeira página.
-        configurar_tesseract()
+            pix = pagina.get_pixmap(
+                matrix=fitz.Matrix(2, 2),
+                alpha=False,
+            )
 
-        pix = primeira_pagina.get_pixmap(
-            matrix=fitz.Matrix(2, 2),
-            alpha=False,
-        )
+            imagem = Image.frombytes(
+                "RGB",
+                [pix.width, pix.height],
+                pix.samples,
+            )
 
-        imagem = Image.frombytes(
-            "RGB",
-            [pix.width, pix.height],
-            pix.samples,
-        )
+            texto_ocr = pytesseract.image_to_string(
+                imagem,
+                lang="por",
+                config="--psm 3",
+            ).strip()
 
-        texto_ocr = pytesseract.image_to_string(
-            imagem,
-            lang="por",
-            config="--psm 3",
-        )
+            textos.append(texto_ocr)
+            metodos.add("TESSERACT OCR")
 
-        return texto_ocr, "TESSERACT OCR"
+    texto_completo = "\n\n".join(
+        texto for texto in textos if texto
+    )
+
+    if metodos == {"TEXTO DIRETO"}:
+        metodo = "TEXTO DIRETO"
+    elif metodos == {"TESSERACT OCR"}:
+        metodo = "TESSERACT OCR"
+    else:
+        metodo = "TEXTO DIRETO + TESSERACT OCR"
+
+    return texto_completo, metodo
 
 
 def extrair_numero_ano(nome_arquivo: str) -> tuple[str, str] | None:
@@ -114,10 +128,10 @@ def extrair_numero_ano(nome_arquivo: str) -> tuple[str, str] | None:
 
 
 def extrair_artigo_resolve(texto: str) -> str | None:
-    """Extrai o primeiro artigo após RESOLVE, tolerando erros comuns de OCR."""
+    """Extrai o primeiro artigo após RESOLVE."""
 
     resultado_resolve = re.search(
-        r"\bRESOLVE\s*[:;]?\s*",
+        r"\bRESOLVE\b\s*[:;.]?\s*",
         texto,
         flags=re.IGNORECASE,
     )
@@ -129,10 +143,10 @@ def extrair_artigo_resolve(texto: str) -> str | None:
 
     resultado_artigo = re.search(
         r"\bArt(?:igo)?[.,]?\s*"
-        r"1\s*(?:[º°oª])?\.?\s*"
+        r"1\s*(?:[º°oª])?\s*\.?\s*"
         r"(.*?)"
         r"(?=\bArt(?:igo)?[.,]?\s*"
-        r"2\s*(?:[º°oª])?\.?\s*|$)",
+        r"2\s*(?:[º°oª])?\s*\.?\s*|$)",
         texto_posterior,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -165,24 +179,40 @@ def extrair_verbo_e_artigo(texto_artigo: str) -> tuple[str | None, str]:
 
 
 def extrair_servidor(texto: str) -> str | None:
-    """Extrai o nome do servidor a partir dos dados funcionais."""
+    """Extrai o nome do servidor antes dos dados funcionais."""
 
     texto = re.sub(r"\s+", " ", texto).strip()
 
     padrao = (
         r"\b(?:a\s+servidora|o\s+servidor|ao\s+servidor|"
         r"à\s+servidora)\s+"
-        r"([A-ZÀ-Ü][A-ZÀ-Üa-zà-ü]+"
-        r"(?:\s+[A-ZÀ-Ü][A-ZÀ-Üa-zà-ü]+){1,11})"
-        r"\s*,?\s*(?=matr[ií]cula\b|ocupante\b)"
+        r"(.+?)"
+        r"\s*,\s*"
+        r"(?=matr[ií]culas?\b|ocupante\b|lotad[oa]\b)"
     )
 
     for resultado in re.finditer(padrao, texto, flags=re.IGNORECASE):
-        nome = resultado.group(1).strip()
+        nome = resultado.group(1).strip(" ,.;:-")
         palavras = nome.split()
 
-        if len(palavras) >= 2:
-            return nome.upper()
+        if not 2 <= len(palavras) <= 12:
+            continue
+
+        # Evita capturar frases dos considerandos.
+        if any(
+            termo in nome.casefold()
+            for termo in (
+                "o direito",
+                "que estabelece",
+                "considerando",
+                "resolve",
+                "licença para",
+                "licença por",
+            )
+        ):
+            continue
+
+        return nome.upper()
 
     return None
 
@@ -261,7 +291,11 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
         verbo, artigo = extrair_verbo_e_artigo(texto_resolve)
         servidor = extrair_servidor(artigo)
 
-    secretarias = identificar_secretarias(texto)
+    secretarias = [
+        secretaria
+        for secretaria in identificar_secretarias(texto)
+        if secretaria.strip().upper() != "SESMT"
+    ]
 
     # Em portarias de relotação, remover SARH quando
     # houver duas ou mais outras secretarias diferentes.
@@ -303,6 +337,11 @@ def identificar_tipo_portaria(texto: str) -> str | None:
 
     tipos = [
         (
+            "L CAT",
+            r"LICENCA\s+EM\s+DECORRENCIA\s+DE\s+ACIDENTE\s+DE\s+TRABALHO"
+            r"|LICENCA\s+(?:POR\s+)?CAT\b",
+        ),
+        (
             "LDPF",
             r"LICENCA\s+POR\s+MOTIVO\s+DE\s+DOENCA\s+EM\s+PESSOA\s+DA\s+FAMILIA",
         ),
@@ -329,10 +368,6 @@ def identificar_tipo_portaria(texto: str) -> str | None:
         (
             "L Pat",
             r"LICENCA\s+PATERNIDADE",
-        ),
-        (
-            "L CAT",
-            r"LICENCA\s+(?:POR\s+)?CAT\b",
         ),
         (
             "AP",

@@ -16,8 +16,13 @@ PADRAO_NOME = re.compile(
     flags=re.IGNORECASE,
 )
 
+BASE_NOME = re.compile(
+    r"^Portaria nº \d{3,5}-20\d{2}\.pdf$",
+    flags=re.IGNORECASE,
+)
 
-def verificar_nomes(pasta: Path) -> None:
+
+def verificar_nomes(pasta: Path, padrao: re.Pattern) -> None:
     """Verifica os nomes dos PDFs sem usar OCR ou alterar arquivos."""
 
     arquivos = sorted(
@@ -39,7 +44,7 @@ def verificar_nomes(pasta: Path) -> None:
     print(f"[INFO] Encontrados {len(arquivos)} arquivos PDF.\n")
 
     for arquivo in arquivos:
-        if PADRAO_NOME.fullmatch(arquivo.name):
+        if padrao.fullmatch(arquivo.name):
             print(f"[OK] {arquivo.name}")
         else:
             print(f"[FORA DO PADRÃO] {arquivo.name}")
@@ -85,6 +90,12 @@ def main():
         help="Ativa o processamento por OCR e a normalização dos arquivos.",
     )
 
+    parser.add_argument(
+        "--base",
+        action="store_true",
+        help="Verifica os arquivos usando o padrão básico de nomes.",
+    )
+
     args = parser.parse_args()
 
     pasta_entrada = Path(args.entrada)
@@ -96,8 +107,14 @@ def main():
         )
         return
 
+    # Modo --base: verifica somente o padrão básico.
+    if args.base:
+        verificar_nomes(pasta_entrada, BASE_NOME)
+        return
+
+    # Modo de verificação normal: usa o padrão original.
     if not args.ocr:
-        verificar_nomes(pasta_entrada)
+        verificar_nomes(pasta_entrada, PADRAO_NOME)
         return
 
     if not args.out or not args.ignorados:
