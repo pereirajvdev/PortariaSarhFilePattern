@@ -187,6 +187,7 @@ def extrair_servidor(texto: str) -> str | None:
         r"\b(?:"
         r"a\s+servidora|"
         r"o\s+servidor|"
+        r"oo\s+servidor|"
         r"ao\s+servidor|"
         r"à\s+servidora|"
         r"a\s+servidor|"

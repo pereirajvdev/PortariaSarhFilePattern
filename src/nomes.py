@@ -1,10 +1,19 @@
 import re
 
+
 def normalizar_nome(nome: str) -> str:
     """
-    Normaliza o nome da pessoa.
+    Normaliza o nome da pessoa, mantendo preposições
+    em minúsculas.
     """
+    nome = re.sub(r"\s+", " ", nome).strip().lower().title()
 
-    nome = re.sub(r"\s+", " ", nome).strip()
+    preposicoes = r"\b(De|Da|Do|Das|Dos|E|Em|Na|No|Nas|Nos)\b"
 
-    return " ".join(parte.capitalize() for parte in nome.split())
+    nome = re.sub(
+        preposicoes,
+        lambda m: m.group(1).lower(),
+        nome,
+    )
+
+    return nome

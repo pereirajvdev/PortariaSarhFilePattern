@@ -57,6 +57,7 @@ NOMES_SETORES = {
         "Secretaria Municipal de Agricultura e Pecuária",
     ],
     "SEMOB": [
+        "Secretaria Municipal de Segurança Pública e Mobilidade Urbana",
         "Secretaria Municipal de Mobilidade Urbana",
     ],
     "SESP": [
