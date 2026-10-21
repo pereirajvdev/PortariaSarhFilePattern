@@ -184,21 +184,35 @@ def extrair_servidor(texto: str) -> str | None:
     texto = re.sub(r"\s+", " ", texto).strip()
 
     padrao = (
-        r"\b(?:a\s+servidora|o\s+servidor|ao\s+servidor|"
-        r"à\s+servidora)\s+"
+        r"\b(?:"
+        r"a\s+servidora|"
+        r"o\s+servidor|"
+        r"ao\s+servidor|"
+        r"à\s+servidora|"
+        r"a\s+servidor|"
+        r"à\s+Sra\.?|"
+        r"a\s+Sra\.?|"
+        r"ao\s+Sr\.?|"
+        r"o\s+Sr\.?|"
+        r"à\s+senhora|"
+        r"ao\s+senhor"
+        r")\s+"
         r"(.+?)"
         r"\s*,\s*"
         r"(?=matr[ií]culas?\b|ocupante\b|lotad[oa]\b)"
     )
 
-    for resultado in re.finditer(padrao, texto, flags=re.IGNORECASE):
+    for resultado in re.finditer(
+        padrao,
+        texto,
+        flags=re.IGNORECASE,
+    ):
         nome = resultado.group(1).strip(" ,.;:-")
         palavras = nome.split()
 
         if not 2 <= len(palavras) <= 12:
             continue
 
-        # Evita capturar frases dos considerandos.
         if any(
             termo in nome.casefold()
             for termo in (
@@ -291,11 +305,18 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
         verbo, artigo = extrair_verbo_e_artigo(texto_resolve)
         servidor = extrair_servidor(artigo)
 
-    secretarias = [
-        secretaria
-        for secretaria in identificar_secretarias(texto)
-        if secretaria.strip().upper() != "SESMT"
-    ]
+    if tipo in ("RELOT", "Relot") and texto_resolve:
+        secretarias = [
+            secretaria
+            for secretaria in extrair_secretarias_relot(texto_resolve)
+            if secretaria.strip().upper() != "SESMT"
+        ]
+    else:
+        secretarias = [
+            secretaria
+            for secretaria in identificar_secretarias(texto)
+            if secretaria.strip().upper() != "SESMT"
+        ]
 
     # Em portarias de relotação, remover SARH quando
     # houver duas ou mais outras secretarias diferentes.
@@ -321,6 +342,36 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
         "resolve_encontrado": texto_resolve is not None,
         "texto_extraido": texto,
     }
+
+
+def extrair_secretarias_relot(texto_artigo: str) -> list[str]:
+    """Extrai as secretarias de origem e destino de uma relotação."""
+
+    from setores import identificar_secretarias
+
+    texto_artigo = re.sub(r"\s+", " ", texto_artigo).strip()
+
+    resultado = re.search(
+        r"\bda\s+(Secretaria Municipal de .+?)\s+"
+        r"para\s+a\s+(Secretaria Municipal de .+?)"
+        r"(?=,\s*a partir de\b|[.;]|$)",
+        texto_artigo,
+        flags=re.IGNORECASE,
+    )
+
+    if not resultado:
+        return identificar_secretarias(texto_artigo)
+
+    origem = resultado.group(1).strip()
+    destino = resultado.group(2).strip()
+
+    # Identifica as siglas a partir dos nomes completos.
+    secretarias = identificar_secretarias(
+        f"{origem}. {destino}."
+    )
+
+    return secretarias
+
 
 def identificar_tipo_portaria(texto: str) -> str | None:
     """Identifica o tipo da portaria pelo texto extraído."""

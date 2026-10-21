@@ -76,6 +76,7 @@ NOMES_SETORES = {
         "Procuradoria Geral do Município",
     ],
     "SEMMADA": [
+        "Secretaria Municipal do Meio Ambiente e Defesa Animal",
         "Secretaria Municipal de Meio Ambiente e Defesa Animal",
         "Secretaria Municipal de Meio Ambiente",
     ],
@@ -120,7 +121,7 @@ def identificar_secretarias(texto: str) -> list[str]:
     for sigla, nomes in NOMES_SETORES.items():
         for nome in nomes:
             nome_normalizado = _normalizar_texto(nome)
-            padrao = re.escape(nome_normalizado).replace(r"\ ", r"\s+")
+            padrao = re.sub(r"\\ ", r"\\s+", re.escape(nome_normalizado))
 
             for resultado in re.finditer(padrao, texto_normalizado):
                 ocorrencias.append((resultado.start(), sigla))
