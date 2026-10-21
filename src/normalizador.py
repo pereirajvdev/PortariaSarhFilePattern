@@ -64,7 +64,7 @@ def normalizar_portaria_ocr(caminho: Path) -> str | None:
     secretarias = dados.get("secretarias") or []
     texto = dados.get("texto_extraido") or ""
 
-    tipo = identificar_tipo_portaria(texto)
+    tipo = dados.get("tipo") or identificar_tipo_portaria(texto)
 
     if not numero or not ano or not tipo or not servidor:
         log_warning(

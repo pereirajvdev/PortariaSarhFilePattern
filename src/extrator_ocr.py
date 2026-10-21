@@ -331,6 +331,21 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
         if len(set(secretarias_sem_sarh)) >= 2:
             secretarias = secretarias_sem_sarh
 
+    if tipo in ("Anula", "Anular", "Revoga", "Revog"):
+        verbo_referencia = (
+            "ANULAR"
+            if tipo in ("Anula", "Anular")
+            else "REVOGAR"
+        )
+
+        portaria_referenciada = extrair_portaria_referenciada(
+            texto,
+            verbo_referencia,
+        )
+
+        if portaria_referenciada:
+            tipo = f"{verbo_referencia.title()} {portaria_referenciada}"
+
     return {
         "arquivo": caminho_pdf.name,
         "metodo": metodo,
@@ -374,6 +389,41 @@ def extrair_secretarias_relot(texto_artigo: str) -> list[str]:
     return secretarias
 
 
+def extrair_portaria_referenciada(
+    texto: str,
+    verbo: str,
+) -> str | None:
+    """
+    Extrai o número e o ano da portaria anulada ou revogada.
+
+    Exemplos:
+    ANULAR a Portaria nº 629/2025 -> 629-2025
+    REVOGAR a Portaria 727/2025 -> 727-2025
+    """
+
+    padrao = re.compile(
+        rf"\b{re.escape(verbo)}\b"
+        rf"[\s\S]{{0,300}}?"
+        rf"\bPortaria\s*(?:n[º°.]?\s*)?"
+        rf"(\d{{1,4}})\s*[/\-]\s*(\d{{4}})",
+        re.IGNORECASE,
+    )
+
+    resultado = padrao.search(texto)
+
+    if resultado:
+        numero, ano = resultado.groups()
+        return f"{numero}-{ano}"
+
+    return None
+
+
+def extrair_portaria_anulada(texto: str) -> str | None:
+    """Mantém compatibilidade com a extração de portarias anuladas."""
+
+    return extrair_portaria_referenciada(texto, "ANULAR")
+
+
 def identificar_tipo_portaria(texto: str) -> str | None:
     """Identifica o tipo da portaria pelo texto extraído."""
 
@@ -388,6 +438,14 @@ def identificar_tipo_portaria(texto: str) -> str | None:
     texto = re.sub(r"\s+", " ", texto).upper()
 
     tipos = [
+        (
+            "Anula",
+            r"ANULAR"
+        ),
+        (
+            "Revoga",
+            r"REVOGAR"
+        ),
         (
             "L CAT",
             r"LICENCA\s+EM\s+DECORRENCIA\s+DE\s+ACIDENTE\s+DE\s+TRABALHO"
