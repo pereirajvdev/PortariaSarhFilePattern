@@ -86,7 +86,7 @@ def normalizar_portaria_ocr(caminho: Path) -> str | None:
     portaria = f"Portaria nº {numero}-{ano}"
     setores_texto = " - ".join(setores)
 
-    return f"{portaria} - {tipo} - {nome} - {setores_texto}.pdf"
+    return f"{portaria} - {tipo.upper()} - {nome} - {setores_texto}.pdf"
 
 
 def normalizar_base(caminho: Path) -> str | None:

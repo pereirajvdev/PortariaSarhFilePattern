@@ -2,7 +2,7 @@ import argparse
 import re
 from pathlib import Path
 
-from processamento import processar_pasta
+from processamento import processar_pasta, processar_base
 
 
 PADRAO_NOME = re.compile(
@@ -107,12 +107,12 @@ def main():
         )
         return
 
-    # Modo --base: verifica somente o padrão básico.
+    # Modo base: renomeia os arquivos na própria pasta.
     if args.base:
-        verificar_nomes(pasta_entrada, BASE_NOME)
+        processar_base(pasta_entrada)
         return
 
-    # Modo de verificação normal: usa o padrão original.
+    # Verificação normal: mantém o padrão original.
     if not args.ocr:
         verificar_nomes(pasta_entrada, PADRAO_NOME)
         return

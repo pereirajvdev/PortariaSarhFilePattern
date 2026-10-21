@@ -60,7 +60,7 @@ NOMES_SETORES = {
         "Secretaria Municipal de Mobilidade Urbana",
     ],
     "SESP": [
-        "Secretaria Municipal de Segurança Pública",
+        "Secretaria Municipal de Esportes",
     ],
     "SEMCI": [
         "Secretaria Municipal de Controle Interno",
@@ -77,6 +77,7 @@ NOMES_SETORES = {
     ],
     "SEMMADA": [
         "Secretaria Municipal de Meio Ambiente e Defesa Animal",
+        "Secretaria Municipal de Meio Ambiente",
     ],
     "SEPLAN": [
         "Secretaria Municipal de Planejamento",
