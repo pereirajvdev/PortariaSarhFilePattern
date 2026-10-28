@@ -77,6 +77,13 @@ def normalizar_portaria_ocr(caminho: Path) -> str | None:
     # Remove siglas repetidas sem alterar a ordem.
     setores = normalizar_secretarias(secretarias, tipo)
 
+    if tipo.casefold().strip() == "relot" and len(setores) != 2:
+        log_warning(
+            f"Portaria RELOT exige exatamente duas secretarias: "
+            f"{caminho.name}. Identificadas: {len(setores)}."
+        )
+        return None
+
     if not setores:
         log_warning(
             f"Nenhuma secretaria identificada no OCR: {caminho.name}"
@@ -212,6 +219,9 @@ def normalizar_arquivo(caminho: Path) -> str | None:
         return normalizar_portaria_ocr(caminho)
 
     tipo = tipo_encontrado.upper()
+
+    if tipo == "RELOT":
+        return normalizar_portaria_ocr(caminho)
 
     # Substitui underscore por hífen.
     texto = texto_restante.replace("_", "-")
