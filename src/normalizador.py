@@ -17,7 +17,7 @@ TIPOS_PORTARIA = {
     "LP",
     "LC",
     "LTS",
-    "LG",
+    "L Mat",
     "L Pat",
     "L CAT",
     "AP",
@@ -37,18 +37,29 @@ def normalizar_secretarias(secretarias: list[str], tipo: str) -> list[str]:
     """Normaliza as secretarias e remove setores que não são secretarias."""
 
     setores = list(dict.fromkeys(
-        setor.upper().strip()
+        setor.strip()
         for setor in secretarias
         if setor
         and setor.strip()
-        and setor.upper().strip() != "SESMT"
+        and setor.strip().casefold() != "sesmt"
     ))
 
     tipo_normalizado = tipo.casefold().strip()
     limite = 2 if tipo_normalizado == "relot" else 1
 
-    if len(setores) > limite and "SARH" in setores:
-        setores.remove("SARH")
+    if len(setores) > limite:
+        setores_sem_sarh = [
+            setor for setor in setores
+            if setor.casefold() != "sarh"
+        ]
+
+        if len(setores_sem_sarh) < len(setores) and "sarh" in [
+            setor.casefold() for setor in setores
+        ]:
+            setores.remove(next(
+                setor for setor in setores
+                if setor.casefold() == "sarh"
+            ))
 
     return setores[:limite]
 
@@ -93,7 +104,7 @@ def normalizar_portaria_ocr(caminho: Path) -> str | None:
     portaria = f"Portaria nº {numero}-{ano}"
     setores_texto = " - ".join(setores)
 
-    return f"{portaria} - {tipo.upper()} - {nome} - {setores_texto}.pdf"
+    return f"{portaria} - {tipo} - {nome} - {setores_texto}.pdf"
 
 
 def normalizar_base(caminho: Path) -> str | None:

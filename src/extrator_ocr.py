@@ -181,6 +181,7 @@ def extrair_verbo_e_artigo(texto_artigo: str) -> tuple[str | None, str]:
 
 
 
+
 def extrair_servidor(texto: str) -> str | None:
     """Extrai o nome do servidor, tolerando falhas comuns de OCR."""
 
@@ -198,7 +199,9 @@ def extrair_servidor(texto: str) -> str | None:
         r"ao\s+Sr\.?|"
         r"o\s+Sr\.?|"
         r"à\s+senhora|"
-        r"ao\s+senhor"
+        r"ao\s+senhor|"
+        r"Sra\.?|"
+        r"Sr\.?"
         r")\s+"
         r"([A-ZÀ-Ü][A-ZÀ-Ü'-]+"
         r"(?:\s+[A-ZÀ-Ü][A-ZÀ-Ü'-]+){1,11})"
@@ -215,7 +218,6 @@ def extrair_servidor(texto: str) -> str | None:
         if not 2 <= len(palavras) <= 12:
             continue
 
-        # Evita capturar texto administrativo como nome.
         if any(
             termo in nome.casefold()
             for termo in (
@@ -228,9 +230,9 @@ def extrair_servidor(texto: str) -> str | None:
         ):
             continue
 
-        # Confirma que o nome está associado a dados funcionais
-        # próximos, mesmo quando a palavra "matrícula" falha no OCR.
-        trecho_posterior = texto[resultado.end():resultado.end() + 100]
+        trecho_posterior = texto[
+            resultado.end():resultado.end() + 150
+        ]
 
         if re.search(
             r"\bmatr[ií]|matr[ií]cula|ocupante\b|lotad[oa]\b|"
@@ -241,6 +243,7 @@ def extrair_servidor(texto: str) -> str | None:
             return nome.upper()
 
     return None
+
 
 
 def extrair_secretaria(texto: str) -> str | None:
@@ -489,7 +492,7 @@ def identificar_tipo_portaria(texto: str) -> str | None:
             r"LICENCA\s+(?:PARA\s+TRATAMENTO\s+DE\s+(?:SUA\s+)?SAUDE|SAUDE)",
         ),
         (
-            "LG",
+            "L Mat",
             r"LICENCA\s+(?:GESTANTE|MATERNIDADE|A\s+GESTANTE)",
         ),
         (
