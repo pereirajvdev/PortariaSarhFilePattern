@@ -178,11 +178,13 @@ def extrair_verbo_e_artigo(texto_artigo: str) -> tuple[str | None, str]:
     return verbo, texto
 
 
+
 def extrair_servidor(texto: str) -> str | None:
     """Extrai o nome do servidor antes dos dados funcionais."""
 
     texto = re.sub(r"\s+", " ", texto).strip()
 
+    # Padrão principal: nome seguido de matrícula, ocupante ou lotado.
     padrao = (
         r"\b(?:"
         r"a\s+servidora|"
@@ -228,6 +230,28 @@ def extrair_servidor(texto: str) -> str | None:
             continue
 
         return nome.upper()
+
+    # Alternativa: nome antes de matrícula, cargo ou lotação,
+    # mesmo quando o OCR não reconhece a expressão "ao servidor".
+    padrao_alternativo = (
+        r"\b([A-ZÀ-Ü][A-ZÀ-Ü'-]+"
+        r"(?:\s+[A-ZÀ-Ü][A-ZÀ-Ü'-]+){1,11})"
+        r"\s*,?\s*"
+        r"(?=(?:matr[ií]cula|ocupante\b|lotad[oa]\b))"
+    )
+
+    resultado = re.search(
+        padrao_alternativo,
+        texto,
+        flags=re.IGNORECASE,
+    )
+
+    if resultado:
+        nome = resultado.group(1).strip()
+        palavras = nome.split()
+
+        if 2 <= len(palavras) <= 12:
+            return nome.upper()
 
     return None
 
@@ -305,6 +329,12 @@ def analisar_portaria(caminho_pdf: Path) -> dict:
     if texto_resolve:
         verbo, artigo = extrair_verbo_e_artigo(texto_resolve)
         servidor = extrair_servidor(artigo)
+
+        if servidor is None:
+            servidor = extrair_servidor(texto_resolve)
+
+        if servidor is None:
+            servidor = extrair_servidor(texto)
 
     if tipo in ("RELOT", "Relot") and texto_resolve:
         secretarias = [
