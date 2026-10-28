@@ -31,12 +31,12 @@ NOMES_SETORES = {
         "Municipal de Saúde",
     ],
     "SEDUC": [
-        "de Educação",
+        "Municipal de Educação",
     ],
     "SEMOSP": [
         "Obras e Serviços Públicos",
-        "Obras",
-        "Serviços Públicos",
+        "Municipal de Obras",
+        "Obras e Serviços Públicos",
     ],
     "SEFIN": [
         "Fazenda",
@@ -44,10 +44,10 @@ NOMES_SETORES = {
     ],
     "SARH": [
         "Administração e Recursos Humanos",
-        "Administração",
+        "Municipal de Administração",
     ],
     "SECOM": [
-        "Comunicação",
+        "Municipal de Comunicação",
         "Comunicação Social",
     ],
     "SEDEC": [
@@ -61,16 +61,16 @@ NOMES_SETORES = {
         "Mobilidade Urbana",
     ],
     "SESP": [
-        "Esportes",
+        "Municipal de Esportes",
     ],
     "SEMCI": [
-        "Controle Interno",
+        "Municipal de Controle Interno",
     ],
     "SEDESO": [
         "Desenvolvimento Social",
     ],
     "SEGOV": [
-        "Governo",
+        "Municipal de Governo",
     ],
     "PGM": [
         "Procuradoria-Geral do Município",
