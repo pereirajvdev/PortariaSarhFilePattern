@@ -28,64 +28,65 @@ SETORES = {
 # Acrescente novas variações conforme forem identificadas nos PDFs.
 NOMES_SETORES = {
     "SEMS": [
-        "Secretaria Municipal de Saúde",
+        "Municipal de Saúde",
     ],
     "SEDUC": [
-        "Secretaria Municipal de Educação",
+        "de Educação",
     ],
     "SEMOSP": [
-        "Secretaria Municipal de Obras e Serviços Públicos",
-        "Secretaria Municipal de Obras",
-        "Secretaria Municipal de Serviços Públicos",
+        "Obras e Serviços Públicos",
+        "Obras",
+        "Serviços Públicos",
     ],
     "SEFIN": [
-        "Secretaria Municipal de Fazenda",
-        "Secretaria Municipal de Finanças",
+        "Fazenda",
+        "Finanças",
     ],
     "SARH": [
-        "Secretaria Municipal de Administração e Recursos Humanos",
-        "Secretaria Municipal de Administração",
+        "Administração e Recursos Humanos",
+        "Administração",
     ],
     "SECOM": [
-        "Secretaria Municipal de Comunicação",
-        "Secretaria Municipal de Comunicação Social",
+        "Comunicação",
+        "Comunicação Social",
     ],
     "SEDEC": [
-        "Secretaria Municipal de Desenvolvimento Econômico",
+        "Desenvolvimento Econômico",
     ],
     "SEMAP": [
-        "Secretaria Municipal de Agricultura e Pecuária",
+        "Agricultura e Pecuária",
     ],
     "SEMOB": [
-        "Secretaria Municipal de Segurança Pública e Mobilidade Urbana",
-        "Secretaria Municipal de Mobilidade Urbana",
+        "Segurança Pública e Mobilidade Urbana",
+        "Mobilidade Urbana",
     ],
     "SESP": [
-        "Secretaria Municipal de Esportes",
+        "Esportes",
     ],
     "SEMCI": [
-        "Secretaria Municipal de Controle Interno",
+        "Controle Interno",
     ],
     "SEDESO": [
-        "Secretaria Municipal de Desenvolvimento Social",
+        "Desenvolvimento Social",
     ],
     "SEGOV": [
-        "Secretaria Municipal de Governo",
+        "Governo",
     ],
     "PGM": [
         "Procuradoria-Geral do Município",
         "Procuradoria Geral do Município",
     ],
     "SEMMADA": [
-        "Secretaria Municipal do Meio Ambiente e Defesa Animal",
-        "Secretaria Municipal de Meio Ambiente e Defesa Animal",
-        "Secretaria Municipal de Meio Ambiente",
+        "Meio Ambiente e Defesa Animal",
+        "Meio Ambiente",
     ],
     "SEPLAN": [
-        "Secretaria Municipal de Planejamento",
+        "de Planejamento",
     ],
     "SELTC": [
-        "Secretaria Municipal de Lazer, Turismo e Cultura",
+        "Lazer, Turismo e Cultura",
+        "Lazer, Turismo",
+        "Turismo e Cultura",
     ],
 }
 

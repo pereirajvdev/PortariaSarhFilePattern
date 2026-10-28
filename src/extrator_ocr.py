@@ -179,17 +179,17 @@ def extrair_verbo_e_artigo(texto_artigo: str) -> tuple[str | None, str]:
 
 
 
+
+
 def extrair_servidor(texto: str) -> str | None:
-    """Extrai o nome do servidor antes dos dados funcionais."""
+    """Extrai o nome do servidor, tolerando falhas comuns de OCR."""
 
     texto = re.sub(r"\s+", " ", texto).strip()
 
-    # Padrão principal: nome seguido de matrícula, ocupante ou lotado.
     padrao = (
         r"\b(?:"
         r"a\s+servidora|"
         r"o\s+servidor|"
-        r"oo\s+servidor|"
         r"ao\s+servidor|"
         r"à\s+servidora|"
         r"a\s+servidor|"
@@ -200,9 +200,8 @@ def extrair_servidor(texto: str) -> str | None:
         r"à\s+senhora|"
         r"ao\s+senhor"
         r")\s+"
-        r"(.+?)"
-        r"\s*,\s*"
-        r"(?=matr[ií]culas?\b|ocupante\b|lotad[oa]\b)"
+        r"([A-ZÀ-Ü][A-ZÀ-Ü'-]+"
+        r"(?:\s+[A-ZÀ-Ü][A-ZÀ-Ü'-]+){1,11})"
     )
 
     for resultado in re.finditer(
@@ -216,41 +215,29 @@ def extrair_servidor(texto: str) -> str | None:
         if not 2 <= len(palavras) <= 12:
             continue
 
+        # Evita capturar texto administrativo como nome.
         if any(
             termo in nome.casefold()
             for termo in (
-                "o direito",
-                "que estabelece",
                 "considerando",
                 "resolve",
-                "licença para",
-                "licença por",
+                "o direito",
+                "licença",
+                "portaria",
             )
         ):
             continue
 
-        return nome.upper()
+        # Confirma que o nome está associado a dados funcionais
+        # próximos, mesmo quando a palavra "matrícula" falha no OCR.
+        trecho_posterior = texto[resultado.end():resultado.end() + 100]
 
-    # Alternativa: nome antes de matrícula, cargo ou lotação,
-    # mesmo quando o OCR não reconhece a expressão "ao servidor".
-    padrao_alternativo = (
-        r"\b([A-ZÀ-Ü][A-ZÀ-Ü'-]+"
-        r"(?:\s+[A-ZÀ-Ü][A-ZÀ-Ü'-]+){1,11})"
-        r"\s*,?\s*"
-        r"(?=(?:matr[ií]cula|ocupante\b|lotad[oa]\b))"
-    )
-
-    resultado = re.search(
-        padrao_alternativo,
-        texto,
-        flags=re.IGNORECASE,
-    )
-
-    if resultado:
-        nome = resultado.group(1).strip()
-        palavras = nome.split()
-
-        if 2 <= len(palavras) <= 12:
+        if re.search(
+            r"\bmatr[ií]|matr[ií]cula|ocupante\b|lotad[oa]\b|"
+            r"\bm[aá]tr[ií]",
+            trecho_posterior,
+            flags=re.IGNORECASE,
+        ):
             return nome.upper()
 
     return None
